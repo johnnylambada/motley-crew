@@ -75,6 +75,20 @@ Each agent gets its own code checkout (**Option C** — agent-owned directories)
 
 This means no coordination is needed for concurrent work. Two workers on different tasks never touch the same files.
 
+## Naming Convention
+
+**Project leads** get human first names starting with the same letter as their project:
+
+| Project | Lead Name | Identity |
+|---------|-----------|----------|
+| **T**oolGuard | **T**om | Tom Sonnet Lead |
+| **P**olly | **P**aul | Paul Sonnet Lead |
+| **M**otley Crew | **M**ax | Max Sonnet Lead |
+
+This is auto-selected by the onboarding script from `scripts/names.txt`. You can override with a manual name.
+
+**Workers** get random human first names (e.g., Alice, Bob, Carol). Their git identity combines name + model + role: `Alice Sonnet Developer`, `Bob Opus Reviewer`.
+
 ## Identity & Attribution
 
 GitHub accounts are shared at the **template role level**, not per-worker:
