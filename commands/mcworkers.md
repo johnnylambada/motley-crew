@@ -12,7 +12,7 @@ When the user sends `/mcworkers`, list all workers.
 
 ### Step 1: Run list script
 ```bash
-~/motley-crew/scripts/list-workers.sh
+~/Documents/motley-crew/scripts/list-workers.sh
 ```
 
 This outputs a table:

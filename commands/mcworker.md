@@ -17,13 +17,13 @@ When the user sends `/mcworker <template>`, spawn a new permanent worker for thi
 ### Step 1: Validate template
 Check that the template exists:
 ```bash
-ls ~/motley-crew/templates/<template>.md
+ls ~/Documents/motley-crew/templates/<template>.md
 ```
 If not found, list available templates and ask the user to pick one.
 
 ### Step 2: Run spawn script
 ```bash
-~/motley-crew/scripts/spawn-worker.sh <template> <repo_url>
+~/Documents/motley-crew/scripts/spawn-worker.sh <template> <repo_url>
 ```
 
 This creates:
