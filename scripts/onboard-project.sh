@@ -251,6 +251,14 @@ cat > "$LEAD_WORKSPACE/memory/$(date +%Y-%m-%d).md" << ENDDAY
 - Status: Awaiting initial codebase review
 ENDDAY
 
+# Copy command runbooks
+COMMANDS_DIR="$REPO_ROOT/commands"
+if [ -d "$COMMANDS_DIR" ]; then
+    mkdir -p "$LEAD_WORKSPACE/commands"
+    cp "$COMMANDS_DIR"/*.md "$LEAD_WORKSPACE/commands/"
+    echo "  Copied command runbooks to workspace"
+fi
+
 echo "  Created workspace at $LEAD_WORKSPACE"
 
 # --- Step 3: Clone repository ---
@@ -274,6 +282,7 @@ cat > "$CONFIG_DIR/projects/${PROJECT}.json" << ENDJSON
 {
   "name": "$PROJECT",
   "repo": "$REPO_URL",
+  "github_repo": "$(echo "$REPO_URL" | sed 's|.*github.com[:/]||; s|\.git$||')",
   "lead_agent_id": "$AGENT_ID",
   "lead_name": "$LEAD_NAME",
   "discord_channel_id": "$CHANNEL_ID",
