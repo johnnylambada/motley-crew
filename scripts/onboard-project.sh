@@ -161,13 +161,15 @@ cat > "$LEAD_WORKSPACE/IDENTITY.md" << ENDID
 - **Role:** Project Lead
 - **Project:** $PROJECT
 - **Agent ID:** $AGENT_ID
-- **Model:** anthropic/claude-sonnet-4-20250514
+- **Model:** anthropic/claude-sonnet-4-6
 - **Git name:** $LEAD_NAME Sonnet Lead
 - **Git email:** forge-lead@motleycrew.ai
 - **Repo:** $REPO_URL
 - **Discord channel:** #$PROJECT ($CHANNEL_ID)
 - **Created:** $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 ENDID
+
+# Update SOUL.md placeholder (template uses {NAME} which was already substituted above)
 
 # Create AGENTS.md
 cat > "$LEAD_WORKSPACE/AGENTS.md" << 'ENDAGENTS'
@@ -213,6 +215,27 @@ You have permanent workers. To assign a task:
 - Workers create feature branches and PRs
 - You review and merge (or request changes)
 - Never commit directly to main
+
+## Commands
+
+You have runbooks in `commands/`. When a user sends a command like `mcstatus`, `mcimplement`, `mcworkers`, or `mcworker`:
+1. Look for a matching file in `commands/` (e.g. `commands/mcstatus.md`)
+2. Read it and follow the instructions exactly
+
+Recognize these commands with or without the leading `/`.
+
+## Post-Compaction Recovery
+
+If you are asked something you have no context for — especially with a small context window — check the Discord history DB first:
+
+```bash
+python3 -c "
+import sqlite3
+conn = sqlite3.connect('/Users/motleycrew/.config/motley-crew/discord.db')
+for row in conn.execute(\"SELECT date, channel_name, from_name, text FROM messages WHERE date > datetime('now', '-3 hours') ORDER BY date\"):
+    print(f\"{row[0][:19]} #{row[1]} [{row[2]}]: {row[3][:200]}\")
+"
+```
 ENDAGENTS
 
 # Create initial MEMORY.md (will be filled during codebase review)
@@ -307,7 +330,7 @@ cat << ENDAGENT
     "id": "$AGENT_ID",
     "name": "$LEAD_NAME ($PROJECT Lead)",
     "workspace": "$LEAD_WORKSPACE",
-    "model": "anthropic/claude-sonnet-4-20250514"
+    "model": "anthropic/claude-sonnet-4-6"
   }
 ENDAGENT
 echo ""
