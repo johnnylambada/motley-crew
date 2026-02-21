@@ -110,16 +110,16 @@ echo "Step 2: Pulling on $MC_HOST..."
 if $DRY_RUN; then
     echo "  [dry-run] Would SSH and git pull"
 else
-    ssh "$MC_USER@$MC_HOST" "cd $MC_REPO_PATH && git fetch origin && git checkout $MC_BRANCH && git pull origin $MC_BRANCH" 2>&1 | sed 's/^/  /'
+    ssh "$MC_USER@$MC_HOST" "cd '$MC_REPO_PATH' && git fetch origin && git checkout '$MC_BRANCH' && git pull origin '$MC_BRANCH'" 2>&1 | sed 's/^/  /'
 fi
 echo ""
 
 # --- Step 3: sync agents ---
 echo "Step 3: Syncing agents on $MC_HOST..."
 if $DRY_RUN; then
-    ssh "$MC_USER@$MC_HOST" "cd $MC_REPO_PATH && ./scripts/sync-agents.sh --dry-run" 2>&1 | sed 's/^/  /'
+    ssh "$MC_USER@$MC_HOST" "cd '$MC_REPO_PATH' && ./scripts/sync-agents.sh --dry-run" 2>&1 | sed 's/^/  /'
 else
-    ssh "$MC_USER@$MC_HOST" "cd $MC_REPO_PATH && ./scripts/sync-agents.sh $SYNC_ARGS" 2>&1 | sed 's/^/  /'
+    ssh "$MC_USER@$MC_HOST" "cd '$MC_REPO_PATH' && ./scripts/sync-agents.sh $SYNC_ARGS" 2>&1 | sed 's/^/  /'
 fi
 echo ""
 

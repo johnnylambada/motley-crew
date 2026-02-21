@@ -144,7 +144,7 @@ update_file_content() {
         echo "  [dry-run] Would update: $label"
     else
         mkdir -p "$(dirname "$dst")"
-        echo "$content" > "$dst"
+        printf '%s\n' "$content" > "$dst"
         echo "  ✅ Updated: $label"
     fi
     UPDATED=$((UPDATED + 1))
@@ -227,16 +227,16 @@ sync_soul() {
         return
     fi
 
-    # Export variables from IDENTITY.md
-    local vars
-    vars=$(read_identity "$identity_file")
-    while IFS= read -r line; do
-        [ -n "$line" ] && export "$line"
-    done <<< "$vars"
-
-    # Render template
+    # Render template in a subshell to avoid env leakage between agents
     local rendered
-    rendered=$("$RENDER" "$template_file")
+    rendered=$(
+        # Export variables from IDENTITY.md
+        vars=$(read_identity "$identity_file")
+        while IFS= read -r line; do
+            [ -n "$line" ] && export "$line"
+        done <<< "$vars"
+        "$RENDER" "$template_file"
+    )
 
     update_file_content "$rendered" "$agent_dir/SOUL.md" "$agent_name/SOUL.md"
 }
