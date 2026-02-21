@@ -32,9 +32,14 @@ TOKEN=$(cat ~/.config/motley-crew/github-token)
 curl -s -H "Authorization: token $TOKEN" -H "Accept: application/vnd.github.v3+json" \
   "https://api.github.com/repos/<owner>/<repo>/issues/<issue_number>"
 ```
-Extract title, body, and labels. Confirm to user what's being implemented.
+Extract title, body, and labels.
+
+**📢 Post to Discord:** "🔍 Read issue #N: **<title>** — starting implementation."
 
 ### Step 2: Sonnet Implements
+
+**📢 Post to Discord:** "🛠️ Spawning implementation worker for #N..."
+
 Spawn a sub-agent (Sonnet, default model) with label `impl-<issue_number>`:
 - Read the issue details
 - Read relevant source files in the project checkout
@@ -47,8 +52,18 @@ Spawn a sub-agent (Sonnet, default model) with label `impl-<issue_number>`:
 
 Timeout: 900s (15 min). If it times out, check for uncommitted work and finish manually.
 
+**📢 Post to Discord:** "⏳ Waiting for implementation worker..." (post this immediately after spawning, don't wait silently)
+
+When the sub-agent returns:
+- **📢 On success:** "✅ Implementation done — PR #X opened on branch `<branch>`. Starting review..."
+- **📢 On failure:** "❌ Implementation failed: <reason>. Investigating..."
+- **📢 On timeout:** "⏰ Implementation timed out after 15 min. Checking for partial work..."
+
 ### Step 3: Opus Reviews
-Once Sonnet's PR is ready, spawn an Opus sub-agent with label `review-<issue_number>`:
+
+**📢 Post to Discord:** "🔎 Spawning Opus reviewer for PR #X..."
+
+Spawn an Opus sub-agent with label `review-<issue_number>`:
 - Model: `anthropic/claude-opus-4-6`
 - Review the full diff: `git diff main <branch>`
 - Focus on: security, correctness, race conditions, edge cases, code style
@@ -56,16 +71,23 @@ Once Sonnet's PR is ready, spawn an Opus sub-agent with label `review-<issue_num
 
 Timeout: 450s (7.5 min).
 
+**📢 Post to Discord:** "⏳ Waiting for Opus review..."
+
+When the review returns:
+- **📢 Post to Discord:** "📋 Review result: **<verdict>**" (include a brief summary of findings)
+
 ### Step 4: Handle Review Result
 
 **If APPROVE:** Go to Step 6 (merge).
 
 **If APPROVE WITH MINOR FIXES:**
+- **📢 Post to Discord:** "🔧 Applying minor fixes from review..."
 - Fix the minor issues directly (no sub-agent needed for small fixes)
 - Commit and push
 - Go to Step 6 (merge)
 
 **If REQUEST CHANGES:**
+- **📢 Post to Discord:** "🔄 Review requested changes. Fixing and re-submitting... (cycle N/3)"
 - Fix all issues listed by Opus (directly if straightforward, or spawn Sonnet if complex)
 - Commit and push
 - Go back to Step 3 (Opus re-reviews)
@@ -74,6 +96,9 @@ Timeout: 450s (7.5 min).
 ### Step 5: (Loop back to Step 3 if needed)
 
 ### Step 6: Merge
+
+**📢 Post to Discord:** "🚀 Merging #N..."
+
 ```bash
 cd <checkout_path>
 git checkout main && git merge <branch> && git push origin main
@@ -86,7 +111,8 @@ curl -s -X PATCH -H "Authorization: token $TOKEN" \
 ```
 
 ### Step 7: Report
-Tell user: issue closed, PR merged, summary of what was done.
+
+**📢 Post to Discord:** "✅ #N — done! PR #X merged, issue closed. <one-line summary of what changed>"
 
 ## Multiple Issues
 1. Process **sequentially** — finish one completely before starting the next
