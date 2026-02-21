@@ -113,8 +113,8 @@ cd "$WORKER_DIR/code"
 git config user.name "$GIT_NAME"
 git config user.email "$GIT_EMAIL"
 
-# --- Extract SOUL.md from template (everything after second ---) ---
-sed '1,/^---$/d; 1,/^---$/d' "$TEMPLATE_FILE" > "$WORKER_DIR/SOUL.md"
+# --- Extract SOUL.md from template ---
+"$SCRIPT_DIR/render-template.sh" "$TEMPLATE_FILE" "NAME=$NAME" "PROJECT=$PROJECT_NAME" > "$WORKER_DIR/SOUL.md"
 
 # Prepend the worker's name to SOUL.md
 SOUL_CONTENT=$(cat "$WORKER_DIR/SOUL.md")

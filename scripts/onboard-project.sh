@@ -141,16 +141,14 @@ echo "Step 2: Creating lead workspace..."
 
 mkdir -p "$LEAD_WORKSPACE/memory"
 
-# Parse lead template
+# Render SOUL.md from lead template
 TEMPLATE_FILE="$TEMPLATES_DIR/lead.md"
 if [ ! -f "$TEMPLATE_FILE" ]; then
     echo "ERROR: Lead template not found: $TEMPLATE_FILE"
     exit 1
 fi
 
-# Extract SOUL.md content (after frontmatter) and substitute placeholders
-sed '1,/^---$/d; 1,/^---$/d' "$TEMPLATE_FILE" | \
-    sed "s/{NAME}/$LEAD_NAME/g; s/{PROJECT}/$PROJECT/g" \
+"$SCRIPT_DIR/render-template.sh" "$TEMPLATE_FILE" "NAME=$LEAD_NAME" "PROJECT=$PROJECT" \
     > "$LEAD_WORKSPACE/SOUL.md"
 
 # Create IDENTITY.md
