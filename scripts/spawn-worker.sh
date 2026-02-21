@@ -22,6 +22,27 @@ TEMPLATE="${1:?Usage: spawn-worker.sh <template> <project-repo-url> [workspace-r
 REPO_URL="${2:?Usage: spawn-worker.sh <template> <project-repo-url> [workspace-root]}"
 WORKSPACE_ROOT="${3:-$HOME/agents/workers}"
 
+# Derive project name from repo URL
+PROJECT_NAME=$(basename "$REPO_URL" .git)
+
+# Look up lead agent ID from project config (if available)
+LEAD_AGENT_ID=""
+CONFIG_DIR="${MC_CONFIG_DIR:-$HOME/.config/motley-crew}"
+if [ -d "$CONFIG_DIR/projects" ]; then
+    LEAD_AGENT_ID=$(python3 -c "
+import json, glob, re
+# Match by project name (derived from repo URL) to handle SSH vs HTTPS differences
+project = '$PROJECT_NAME'
+for f in glob.glob('$CONFIG_DIR/projects/*.json'):
+    with open(f) as fh:
+        d = json.load(fh)
+        repo = d.get('repo', '')
+        if project in repo or d.get('name', '') == project:
+            print(d.get('lead_agent_id', ''))
+            break
+" 2>/dev/null || true)
+fi
+
 TEMPLATE_FILE="$TEMPLATES_DIR/${TEMPLATE}.md"
 if [ ! -f "$TEMPLATE_FILE" ]; then
     echo "ERROR: Template not found: $TEMPLATE_FILE"
@@ -191,7 +212,94 @@ cat > "$WORKER_DIR/memory/$(date +%Y-%m-%d).md" << ENDMEM
 - Project: $REPO_URL
 ENDMEM
 
+# --- Register as OpenClaw agent ---
+OPENCLAW_CONFIG="${OPENCLAW_CONFIG:-$HOME/.openclaw/openclaw.json}"
+
+if [ -f "$OPENCLAW_CONFIG" ]; then
+    echo "Registering worker as OpenClaw agent..."
+
+    # Derive project name from repo URL for agent ID
+    PROJECT_SHORT=$(basename "$REPO_URL" .git)
+    AGENT_ID="${PROJECT_SHORT}-worker-${NAME_LOWER}"
+
+    python3 << PYEOF
+import json
+
+config_path = "$OPENCLAW_CONFIG"
+agent_id = "$AGENT_ID"
+workspace = "$WORKER_DIR"
+model = "$MODEL"
+name = "$NAME ($MODEL_SHORT $ROLE)"
+
+with open(config_path) as f:
+    config = json.load(f)
+
+# Add agent to list (skip if already exists)
+agents_list = config.get("agents", {}).get("list", [])
+if not any(a.get("id") == agent_id for a in agents_list):
+    agents_list.append({
+        "id": agent_id,
+        "name": name,
+        "workspace": workspace,
+        "model": model
+    })
+    config.setdefault("agents", {})["list"] = agents_list
+    print(f"  Added agent: {agent_id}")
+else:
+    print(f"  Agent already exists: {agent_id}")
+
+# Enable agentToAgent if not already
+tools = config.setdefault("tools", {})
+a2a = tools.setdefault("agentToAgent", {"enabled": True, "allow": []})
+if not a2a.get("enabled"):
+    a2a["enabled"] = True
+
+# Add agent to allow list
+allow = a2a.setdefault("allow", [])
+if agent_id not in allow:
+    allow.append(agent_id)
+    print(f"  Added to agentToAgent allow: {agent_id}")
+
+# Ensure lead is also in allow list
+lead_id = "$LEAD_AGENT_ID"
+if lead_id and lead_id not in allow:
+    allow.append(lead_id)
+    print(f"  Added to agentToAgent allow: {lead_id}")
+
+# Enable session visibility
+tools.setdefault("sessions", {})["visibility"] = "all"
+
+with open(config_path, "w") as f:
+    json.dump(config, f, indent=2)
+
+print("  Config updated.")
+PYEOF
+
+    # Restart gateway to pick up new agent
+    echo "Restarting OpenClaw gateway..."
+    if command -v openclaw &>/dev/null; then
+        openclaw gateway restart 2>&1 | sed 's/^/  /'
+    else
+        # Try common paths
+        for p in /opt/homebrew/bin/openclaw /usr/local/bin/openclaw "$HOME/.npm-global/bin/openclaw"; do
+            if [ -x "$p" ]; then
+                "$p" gateway restart 2>&1 | sed 's/^/  /'
+                break
+            fi
+        done
+    fi
+
+    echo "  Agent ID: $AGENT_ID"
+else
+    echo "WARNING: OpenClaw config not found at $OPENCLAW_CONFIG"
+    echo "Worker created but not registered as an agent."
+    echo "Manually add to openclaw.json to enable sessions_send communication."
+    AGENT_ID="(not registered)"
+fi
+
+echo ""
 echo "=== Worker $NAME created successfully ==="
 echo ""
-echo "Workspace: $WORKER_DIR"
-echo "To assign a task, send a message to the worker's session."
+echo "  Workspace: $WORKER_DIR"
+echo "  Agent ID:  $AGENT_ID"
+echo "  To assign a task: sessions_send(agentId=\"$AGENT_ID\", message=\"...\")"
