@@ -36,66 +36,83 @@ Extract title, body, and labels.
 
 **📢 Post to Discord:** "🔍 Read issue #N: **<title>** — starting implementation."
 
-### Step 2: Sonnet Implements
+### Step 2: Pick a Worker
 
-**📢 Post to Discord:** "🛠️ Spawning implementation worker for #N..."
+Check for available **named workers** using `sessions_list` or `agents_list`:
+- Look for a worker agent matching the project (e.g., `toolguard-worker-alice`)
+- Prefer a Sonnet-class worker for implementation
+- If no named worker exists, fall back to `sessions_spawn` (ephemeral sub-agent)
 
-Spawn a sub-agent (Sonnet, default model) with label `impl-<issue_number>`:
-- Read the issue details
-- Read relevant source files in the project checkout
-- Create branch `feature/<descriptive-name>` or `fix/<descriptive-name>` off main
-- Implement the fix/feature
-- Run build and test commands from project config (or detect from repo)
-- Commit and push
-- Open a PR against main with clear description referencing the issue
-- **Report back** with: branch name, PR number, files changed, test results, design decisions
+**📢 Post to Discord:** "🛠️ Assigning #N to **<worker-name>**..."
 
-Timeout: 900s (15 min). If it times out, check for uncommitted work and finish manually.
+### Step 3: Send Task to Worker
 
-**📢 Post to Discord:** "⏳ Waiting for implementation worker..." (post this immediately after spawning, don't wait silently)
+Send the implementation task to the worker via `sessions_send`:
 
-When the sub-agent returns:
-- **📢 On success:** "✅ Implementation done — PR #X opened on branch `<branch>`. Starting review..."
-- **📢 On failure:** "❌ Implementation failed: <reason>. Investigating..."
-- **📢 On timeout:** "⏰ Implementation timed out after 15 min. Checking for partial work..."
+```
+sessions_send(agentId="<worker-agent-id>", message="
+Implement issue #N: <title>
 
-### Step 3: Opus Reviews
+Issue details:
+<body>
 
-**📢 Post to Discord:** "🔎 Spawning Opus reviewer for PR #X..."
+Instructions:
+1. Pull latest: cd code && git pull
+2. Create branch: feature/<descriptive-name> or fix/<descriptive-name>
+3. Implement the fix/feature
+4. Run build and tests
+5. Commit and push
+6. Open a PR against main referencing issue #N
+7. Report back with: branch name, PR number, files changed, test results, design decisions
+")
+```
 
-Spawn an Opus sub-agent with label `review-<issue_number>`:
-- Model: `anthropic/claude-opus-4-6`
+**📢 Post to Discord:** "⏳ Waiting for **<worker-name>** to implement #N..."
+
+Poll for the worker's response using `sessions_send` or check back periodically. The worker will report back when done.
+
+When the worker responds:
+- **📢 On success:** "✅ **<worker-name>** done — PR #X opened on branch `<branch>`. Starting review..."
+- **📢 On failure:** "❌ **<worker-name>** failed: <reason>. Investigating..."
+
+### Step 4: Review
+
+**📢 Post to Discord:** "🔎 Reviewing PR #X..."
+
+For reviews, either:
+- **If an Opus-class named worker exists:** Send the review task to that worker via `sessions_send`
+- **Otherwise:** Spawn an Opus sub-agent with label `review-<issue_number>` (ephemeral is OK for reviews)
+
+Review task:
 - Review the full diff: `git diff main <branch>`
 - Focus on: security, correctness, race conditions, edge cases, code style
 - **Report back** with: findings list, verdict (APPROVE / APPROVE WITH MINOR FIXES / REQUEST CHANGES)
 
-Timeout: 450s (7.5 min).
-
-**📢 Post to Discord:** "⏳ Waiting for Opus review..."
+**📢 Post to Discord:** "⏳ Waiting for review..."
 
 When the review returns:
 - **📢 Post to Discord:** "📋 Review result: **<verdict>**" (include a brief summary of findings)
 
-### Step 4: Handle Review Result
+### Step 5: Handle Review Result
 
-**If APPROVE:** Go to Step 6 (merge).
+**If APPROVE:** Go to Step 7 (merge).
 
 **If APPROVE WITH MINOR FIXES:**
 - **📢 Post to Discord:** "🔧 Applying minor fixes from review..."
-- Fix the minor issues directly (no sub-agent needed for small fixes)
-- Commit and push
-- Go to Step 6 (merge)
+- Send fixes to the implementation worker via `sessions_send` (they have the context)
+- Or fix directly if trivial
+- Go to Step 7 (merge)
 
 **If REQUEST CHANGES:**
-- **📢 Post to Discord:** "🔄 Review requested changes. Fixing and re-submitting... (cycle N/3)"
-- Fix all issues listed by Opus (directly if straightforward, or spawn Sonnet if complex)
-- Commit and push
-- Go back to Step 3 (Opus re-reviews)
+- **📢 Post to Discord:** "🔄 Review requested changes. Sending back to **<worker-name>**... (cycle N/3)"
+- Send the review feedback to the implementation worker via `sessions_send`
+- The worker already has context from the first implementation — this is where permanent workers shine
+- Go back to Step 4 (re-review)
 - Maximum 3 review cycles — if still not passing, report to user for manual intervention
 
-### Step 5: (Loop back to Step 3 if needed)
+### Step 6: (Loop back to Step 4 if needed)
 
-### Step 6: Merge
+### Step 7: Merge
 
 **📢 Post to Discord:** "🚀 Merging #N..."
 
@@ -110,7 +127,7 @@ curl -s -X PATCH -H "Authorization: token $TOKEN" \
   -d '{"state":"closed"}'
 ```
 
-### Step 7: Report
+### Step 8: Report
 
 **📢 Post to Discord:** "✅ #N — done! PR #X merged, issue closed. <one-line summary of what changed>"
 
@@ -121,8 +138,10 @@ curl -s -X PATCH -H "Authorization: token $TOKEN" \
 4. Final summary of all issues: succeeded, failed, skipped
 
 ## Key Rules
-- **Never run parallel sub-agents on the same repo** — they clobber each other's branches
-- **Sub-agents must always report back** — silence is not acceptable
+- **Use named workers first** — fall back to ephemeral sub-agents only if no named worker exists
+- **Never run parallel workers on the same repo** — they clobber each other's branches
+- **Workers must always report back** — silence is not acceptable
 - **Sonnet implements, Opus reviews** — never the other way around
 - **All tests must pass** before PR and before merge
 - **Max 3 review cycles** — escalate to human if stuck
+- **Named workers retain context** — send review feedback back to the same worker that implemented (they already know the code)
