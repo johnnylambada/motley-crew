@@ -23,11 +23,27 @@ Filter out pull requests (items with `pull_request` key).
 
 ### 2. Build HTML email
 
-- **Sort order:** `botblocker`-labeled first (red background), then `human`-labeled (yellow background), then rest. Within groups, sort by milestone priority then issue number.
+Split issues into three sections in this order:
+
+**Section 1 — 🚦 Ready for AI** (green background `#d4edda`):
+- Issues with NO `human` or `botblocker` labels
+- These can be worked on immediately without human input
+- Sort by milestone priority then issue number
+
+**Section 2 — 🙋 Needs Human** (yellow background `#fff3cd`):
+- Issues labeled `human`
+- Humans must act before AI can proceed
+
+**Section 3 — 🚫 Bot Blockers** (red background `#ffcccc`):
+- Issues labeled `botblocker`
+- Blocked on external dependencies
+
+Each section has its own `<h3>` header and table. Skip empty sections.
+
 - **HTML table columns:** `#`, `Title` (linked), `Labels`, `Milestone`, `Status/Deps`
-- If CoS (multi-project): group issues by project with `<h3>` headers
-- **Summary line** with counts: open, botblockers, human action needed
-- **All commentary goes BELOW the table** — recently closed, action items, critical path notes
+- If CoS (multi-project): group by project with `<h2>` headers, then sections within each project
+- **Summary line** with counts: ready for AI, needs human, bot blockers
+- **All commentary goes BELOW the sections** — recently closed, action items, critical path notes
 
 ### 3. Send via email
 
@@ -48,5 +64,6 @@ Tell the user the email was sent (or that you posted the summary to Discord).
 
 ## Notes
 - Parse dependency info from issue bodies when available
-- Color coding: `botblocker` red (#ffcccc), `human` yellow (#fff3cd)
-- Include recently closed issues (last 10) below the table
+- Color coding: ready `#d4edda` green, `human` `#fff3cd` yellow, `botblocker` `#ffcccc` red
+- Include recently closed issues (last 10) below the sections
+- An issue can appear in multiple sections if it has multiple relevant labels — use the most restrictive (botblocker > human > ready)
