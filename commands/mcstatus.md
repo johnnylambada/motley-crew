@@ -47,20 +47,70 @@ Each section has its own `<h3>` header and table. Skip empty sections.
 
 ### 3. Send via email
 
-Use the ToolGuard shim to send:
-```bash
-echo '<MCP JSON>' | ~/.toolguard/bin/toolguard shim --config ~/.toolguard/toolguard.yaml 2>/dev/null
+Use the ToolGuard shim to send. Call via Python subprocess (not shell pipe — shell escaping breaks with large HTML bodies):
+
+```python
+import json, subprocess, datetime
+
+html = "<your html string>"
+today = datetime.date.today().strftime("%Y-%m-%d")
+
+payload = json.dumps({
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+        "name": "google-workspace.send_gmail_message",  # NOTE: must use plugin.tool format
+        "arguments": {
+            "user_google_email": "atari400clawbot@gmail.com",
+            "to": "john.lombardo@gmail.com",
+            "subject": f"Motley Crew \u2014 ToolGuard Issues ({today})",
+            "body": html,
+            "body_format": "html"  # not body_type — use body_format
+        }
+    }
+})
+
+result = subprocess.run(
+    ["/Users/motleycrew/.toolguard/bin/toolguard", "shim", "--config", "/Users/motleycrew/.toolguard/toolguard.yaml"],
+    input=payload, capture_output=True, text=True, timeout=30
+)
+
+for line in result.stdout.strip().split('\n'):
+    try:
+        r = json.loads(line)
+        if 'result' in r:
+            for c in r['result'].get('content', []):
+                print(c.get('text', ''))
+    except:
+        pass
 ```
-- **To:** john.lombardo@gmail.com
-- **Subject:** `Motley Crew — <Project> Issues (<date>)` (or `All Projects` for CoS)
-- **body_format:** html
-- **user_google_email:** atari400clawbot@gmail.com
+
+**Key details:**
+- Tool name format: `google-workspace.send_gmail_message` (plugin.tool — NOT just `send_email`)
+- Parameter is `body_format` (not `body_type`)
+- Use Python subprocess, not shell pipe — large HTML bodies break with shell escaping
+- Success response contains `"Email sent! Message ID: <id>"`
 
 If the shim is not available (ToolGuard not installed), fall back to posting the summary directly in the Discord channel as a message.
 
 ### 4. Confirm
 
 Tell the user the email was sent (or that you posted the summary to Discord).
+
+## Milestone Priority Order
+
+Within each section, sort issues by milestone priority (highest first), then by issue number:
+
+1. **Beta Launch** (due 2026-05-31)
+2. **Production Infrastructure** (no due date — but urgent)
+3. **General Availability** (due 2026-08-31)
+4. **Scale** (due 2026-11-30)
+5. **Post Enterprise Launch** (no due date)
+6. **Backlog** (lowest priority — nice to have, no timeline)
+7. **No milestone** (treat as lowest, after Backlog)
+
+The milestone column in the table should be prominent — it's the primary sort key.
 
 ## Notes
 - Parse dependency info from issue bodies when available
